@@ -2,6 +2,7 @@ from fastapi import APIRouter, Body, HTTPException
 
 from app.db import connect
 from app.modules import STUBS
+from app.modules import batch_detect_hist_reconcile as reconcile
 from app.services import catalog, detect, ingest, scd
 
 router = APIRouter(prefix="/api")
@@ -137,10 +138,39 @@ def run_detect(body: dict | None = Body(None)):
 
 @router.post("/scd/apply")
 def run_scd(body: dict = Body(...)):
+    batch_id = body.get("batch_id")
     run_id = body.get("detect_run_id")
-    if not run_id:
-        raise HTTPException(400, "需要 detect_run_id")
-    return scd.apply_type2(run_id)
+    if not batch_id or not run_id:
+        raise HTTPException(400, "需要 batch_id 与 detect_run_id（按批对账应用）")
+    result = reconcile.apply_batch(batch_id, run_id)
+    if result.get("error"):
+        status = {
+            "batch_not_found": 404,
+            "detect_run_not_found": 404,
+        }.get(result["error"], 409)
+        raise HTTPException(status, result.get("message", result["error"]))
+    return result
+
+
+@router.get("/reconcile")
+def reconcile_list():
+    conn = connect()
+    try:
+        return reconcile.list_records(conn)
+    finally:
+        conn.close()
+
+
+@router.get("/reconcile/{batch_id}")
+def reconcile_verify(batch_id: str):
+    conn = connect()
+    try:
+        data = reconcile.verify_batch(conn, batch_id)
+        if data is None:
+            raise HTTPException(404, f"入档批不存在: {batch_id}")
+        return data
+    finally:
+        conn.close()
 
 
 @router.post("/proofs/rebuild")

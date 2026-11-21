@@ -4,6 +4,7 @@ import { api } from "../api.js";
 export default function History() {
   const [rows, setRows] = useState([]);
   const [storeId, setStoreId] = useState("");
+  const [batchId, setBatchId] = useState("");
   const [detectRunId, setDetectRunId] = useState("");
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
@@ -20,7 +21,7 @@ export default function History() {
     try {
       const r = await api("/api/scd/apply", {
         method: "POST",
-        body: JSON.stringify({ detect_run_id: detectRunId.trim() }),
+        body: JSON.stringify({ batch_id: batchId.trim(), detect_run_id: detectRunId.trim() }),
       });
       setMsg(JSON.stringify(r, null, 2));
       await reload();
@@ -34,7 +35,7 @@ export default function History() {
       <div className="topbar">
         <div>
           <h1>历史维</h1>
-          <p>Type2：关旧行（valid_to + is_current=0）并开新行；与当前镜同源。</p>
+          <p>Type2：关旧行（valid_to + is_current=0）并开新行；开段与三方对账同事务，不一致整体回滚且批次不得标成功。</p>
         </div>
       </div>
       <div className="panel">
@@ -47,12 +48,18 @@ export default function History() {
           />
           <button className="secondary" onClick={reload}>查询历史</button>
           <input
+            value={batchId}
+            onChange={(e) => setBatchId(e.target.value)}
+            placeholder="batch_id（须与跑次同批）"
+            style={{ minWidth: 200, padding: "0.4rem 0.6rem", borderRadius: 8, border: "1px solid var(--line)", background: "#0c2226", color: "var(--text)" }}
+          />
+          <input
             value={detectRunId}
             onChange={(e) => setDetectRunId(e.target.value)}
-            placeholder="detect_run_id 应用 Type2"
-            style={{ minWidth: 220, padding: "0.4rem 0.6rem", borderRadius: 8, border: "1px solid var(--line)", background: "#0c2226", color: "var(--text)" }}
+            placeholder="detect_run_id"
+            style={{ minWidth: 180, padding: "0.4rem 0.6rem", borderRadius: 8, border: "1px solid var(--line)", background: "#0c2226", color: "var(--text)" }}
           />
-          <button onClick={apply}>应用 Type2 开闭</button>
+          <button onClick={apply}>应用 Type2 开闭（带对账）</button>
         </div>
         {msg && <pre className="msg">{msg}</pre>}
         {err && <p className="error">{err}</p>}

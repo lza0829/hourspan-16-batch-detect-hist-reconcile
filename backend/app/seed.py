@@ -19,7 +19,10 @@ CREATE TABLE IF NOT EXISTS stores (
 CREATE TABLE IF NOT EXISTS ingest_batches (
   id TEXT PRIMARY KEY,
   created_at TEXT NOT NULL,
-  report_json TEXT NOT NULL DEFAULT '{}'
+  report_json TEXT NOT NULL DEFAULT '{}',
+  apply_status TEXT NOT NULL DEFAULT 'pending',
+  applied_at TEXT,
+  apply_detect_run_id TEXT
 );
 
 CREATE TABLE IF NOT EXISTS source_snapshots (
@@ -55,7 +58,8 @@ CREATE TABLE IF NOT EXISTS dim_store_hours_hist (
   is_current INTEGER NOT NULL DEFAULT 1,
   source_snapshot_id TEXT,
   row_hash TEXT NOT NULL,
-  closed_by_run TEXT
+  closed_by_run TEXT,
+  opened_by_run TEXT
 );
 
 CREATE TABLE IF NOT EXISTS dim_store_hours_current (
@@ -87,11 +91,50 @@ CREATE TABLE IF NOT EXISTS scd_proofs (
   created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS batch_reconcile (
+  id TEXT PRIMARY KEY,
+  batch_id TEXT NOT NULL REFERENCES ingest_batches(id),
+  detect_run_id TEXT NOT NULL,
+  snapshot_count INTEGER NOT NULL,
+  changed_count INTEGER NOT NULL,
+  opened_count INTEGER NOT NULL,
+  counts_relation_ok INTEGER NOT NULL,
+  id_set_equal INTEGER NOT NULL,
+  valid INTEGER NOT NULL,
+  changed_ids_json TEXT NOT NULL DEFAULT '[]',
+  opened_ids_json TEXT NOT NULL DEFAULT '[]',
+  missing_opened_json TEXT NOT NULL DEFAULT '[]',
+  extra_opened_json TEXT NOT NULL DEFAULT '[]',
+  foreign_changed_json TEXT NOT NULL DEFAULT '[]',
+  rule TEXT NOT NULL,
+  closure TEXT NOT NULL,
+  detail_json TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_hist_store_current
   ON dim_store_hours_hist(store_id, is_current);
 CREATE INDEX IF NOT EXISTS idx_snap_store_ts
   ON source_snapshots(store_id, as_of_ts);
+CREATE INDEX IF NOT EXISTS idx_reconcile_batch
+  ON batch_reconcile(batch_id);
+CREATE INDEX IF NOT EXISTS idx_hist_opened_by
+  ON dim_store_hours_hist(opened_by_run);
 """
+
+# 既有库就地迁移（CREATE 只对新库生效）
+_MIGRATIONS = [
+    ("ingest_batches", "apply_status", "apply_status TEXT NOT NULL DEFAULT 'pending'"),
+    ("ingest_batches", "applied_at", "applied_at TEXT"),
+    ("ingest_batches", "apply_detect_run_id", "apply_detect_run_id TEXT"),
+    ("dim_store_hours_hist", "opened_by_run", "opened_by_run TEXT"),
+]
+
+
+def _ensure_column(conn, table, column, ddl):
+    cols = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+    if column not in cols:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {ddl}")
 
 
 def now_iso() -> str:
@@ -106,6 +149,8 @@ def row_hash(open_time, close_time, weekday_mask, biz_status) -> str:
 def init_db():
     conn = connect()
     conn.executescript(SCHEMA)
+    for table, column, ddl in _MIGRATIONS:
+        _ensure_column(conn, table, column, ddl)
     if not conn.execute("SELECT 1 FROM settings WHERE key='as_of_mode'").fetchone():
         conn.execute("INSERT INTO settings(key, value) VALUES ('as_of_mode', 'business_ts')")
     if conn.execute("SELECT COUNT(*) AS c FROM stores").fetchone()["c"] == 0:

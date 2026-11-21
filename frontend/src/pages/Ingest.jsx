@@ -43,13 +43,22 @@ export default function Ingest() {
       </div>
       <div className="panel">
         <h2>入档批</h2>
+        <p className="muted">
+          report 中 accepted / skipped / total 仅是入档接收统计，不充当批对账；
+          批应用成败以三方对账（检测成员 ↔ 新开 hist ↔ 实落快照）为准，见核证页。
+        </p>
         <table>
-          <thead><tr><th>批号</th><th>时间</th><th>报告</th></tr></thead>
+          <thead><tr><th>批号</th><th>时间</th><th>应用状态</th><th>报告（非对账）</th></tr></thead>
           <tbody>
             {batches.map((b) => (
               <tr key={b.id}>
                 <td className="mono">{b.id}</td>
                 <td>{b.created_at}</td>
+                <td>
+                  <span className={`badge ${b.apply_status === "applied" ? "ok" : b.apply_status === "failed" ? "bad" : ""}`}>
+                    {b.apply_status || "pending"}
+                  </span>
+                </td>
                 <td className="mono">{b.report_json}</td>
               </tr>
             ))}

@@ -13,6 +13,13 @@ def overview(conn):
         "入档批": conn.execute("SELECT COUNT(*) AS c FROM ingest_batches").fetchone()["c"],
         "检测跑次": conn.execute("SELECT COUNT(*) AS c FROM detect_runs").fetchone()["c"],
         "核证条": conn.execute("SELECT COUNT(*) AS c FROM scd_proofs").fetchone()["c"],
+        "对账记录": conn.execute("SELECT COUNT(*) AS c FROM batch_reconcile").fetchone()["c"],
+        "已应用批": conn.execute(
+            "SELECT COUNT(*) AS c FROM ingest_batches WHERE apply_status='applied'"
+        ).fetchone()["c"],
+        "对账失败批": conn.execute(
+            "SELECT COUNT(*) AS c FROM ingest_batches WHERE apply_status='failed'"
+        ).fetchone()["c"],
         "搁置": conn.execute("SELECT COUNT(*) AS c FROM quarantine").fetchone()["c"],
     }
 

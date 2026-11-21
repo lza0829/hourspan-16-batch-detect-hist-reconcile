@@ -22,3 +22,11 @@ npm run dev
 ```
 
 或：`docker compose up -d --build`（6200 / 11200）
+
+后端对账测试（批管道三方对账：架构乙 id 集全等 + 失败闭甲 开段与对账同事务）：
+
+```powershell
+cd backend
+pip install -r requirements-dev.txt
+python -m pytest tests/ -v
+```

@@ -27,7 +27,7 @@ def run_batch(fixture_name: str = "ingest_change_batch.json"):
             st = s.get("biz_status", "open")
             rh = row_hash(ot, ct, wm, st)
             snap_id = s.get("id") or f"SNAP-{uuid4().hex[:10]}"
-            conn.execute(
+            cur = conn.execute(
                 """INSERT OR IGNORE INTO source_snapshots(
                   id, batch_id, store_id, as_of_ts, open_time, close_time,
                   weekday_mask, biz_status, payload_json, row_hash
@@ -45,7 +45,7 @@ def run_batch(fixture_name: str = "ingest_change_batch.json"):
                     rh,
                 ),
             )
-            if conn.total_changes:
+            if cur.rowcount:
                 accepted += 1
             else:
                 skipped += 1

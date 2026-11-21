@@ -15,5 +15,4 @@ STUBS = [
     "concurrent_version_hold",
     "snapshot_field_allowlist",
     "region_cut_audit",
-    "batch_detect_hist_reconcile",
 ]
